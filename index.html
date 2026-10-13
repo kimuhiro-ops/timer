@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2台同期カスタムタイマー</title>
+  <!-- Firebase 安定版ライブラリ -->
+  <script src="https://gstatic.com"></script>
+  <script src="https://gstatic.com"></script>
+  
+  <style>
+    body { background-color: #000000; color: #ffffff; font-family: 'Helvetica Neue', Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+    
+    /* モード選択エリア */
+    .mode-selector { margin-bottom: 20px; display: flex; gap: 10px; }
+    .mode-btn { background-color: #222; color: #888; border: 1px solid #444; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
+    .mode-btn.active { background-color: #ffffff; color: #000000; border-color: #ffffff; }
+
+    /* 時間設定エリア */
+    .setup-area { margin-bottom: 20px; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; background: #111; padding: 10px 15px; border-radius: 10px; border: 1px solid #333; }
+    .setup-area input { background: #000; color: #fff; border: 1px solid #555; padding: 8px; width: 55px; text-align: center; font-size: 1.2rem; border-radius: 6px; font-family: monospace; }
+    #setTimeBtn { padding: 8px 16px; background: #fff; color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+    /* タイマー表示本体（サイズを9remに拡大） */
+    #timer { font-size: 9rem; font-family: monospace; font-weight: 700; margin-bottom: 20px; letter-spacing: 2px; text-align: center; min-width: 450px; }
+    
+    /* 文字色のルール */
+    .color-white { color: #ffffff; }
+    .color-yellow { color: #ffeb3b; }
+
+    /* 操作ボタン */
+    .controls { display: flex; gap: 15px; margin-bottom: 30px; }
+    button.ctrl-btn { background-color: #222; color: white; border: none; padding: 15px 35px; font-size: 1.2rem; cursor: pointer; border-radius: 30px; font-weight: bold; min-width: 120px; transition: background-color 0.2s, transform 0.1s; }
+    button.ctrl-btn:active { transform: scale(0.96); }
+    #startBtn { background-color: #1b5e20; }
+    #startBtn:hover { background-color: #2e7d32; }
+    #stopBtn { background-color: #b71c1c; }
+    #stopBtn:hover { background-color: #c62828; }
+    #resetBtn { background-color: #37474f; }
+    #resetBtn:hover { background-color: #455a64; }
+
+    /* 独立したTIME UP! 警告表示エリア */
+    #alertArea { font-size: 3rem; font-weight: bold; min-height: 4.5rem; text-align: center; }
+    .time-up-yellow-blink { color: #ffeb3b; animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  </style>
+</head>
+<body>
+
+  <!-- モード切り替え -->
+  <div class="mode-selector">
+    <button id="modeUpBtn" class="mode-btn active">タイムアップ (通常の計測)</button>
+    <button id="modeDownBtn" class="mode-btn">タイムダウン (カウントダウン)</button>
+  </div>
+
+  <!-- 時間設定 -->
+  <div id="setupArea" class="setup-area">
+    <input type="number" id="setupH" min="0" max="23" value="0"> 時
+    <input type="number" id="setupM" min="0" max="59" value="10"> 分
+    <input type="number" id="setupS" min="0" max="59" value="0"> 秒
+    <button id="setTimeBtn">設定を確定</button>
+  </div>
+
+  <!-- メインタイマー表示 -->
+  <div id="timer" class="color-white">00:00:00</div>
+  
+  <!-- 操作ボタン -->
+  <div class="controls">
+    <button id="startBtn" class="ctrl-btn">スタート</button>
+    <button id="stopBtn" class="ctrl-btn">ストップ</button>
+    <button id="resetBtn" class="ctrl-btn">リセット</button>
+  </div>
+
+  <!-- ボタン下部のアラートエリア -->
+  <div id="alertArea"></div>
+
+  <script>
+    const firebaseConfig = { databaseURL: "https://firebaseio.com" };
+    firebase.initializeApp(firebaseConfig);
+    const dbRef = firebase.database().ref("mondo_global_shared_timer");
+
+    let timerInterval;
+    let sState = { 
+      mode: "UP", 
+      isRunning: false, 
+      startTime: 0, 
+      elapsedTime: 0, 
+      initialDuration: 600000, 
+      remainingTime: 600000 
+    };
+
+    dbRef.on("value", (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        sState = data;
+        clearInterval(timerInterval);
+        updateModeUI();
+
+        if (sState.isRunning) {
+          timerInterval = setInterval(tick, 100);
+        } else {
+          if (sState.mode === "DOWN" && sState.remainingTime <= 0) {
+            triggerTimeUpUI();
+          } else {
+            const displayMs = (sState.mode === "UP") ? sState.elapsedTime : sState.remainingTime;
+            renderTime(displayMs);
+          }
+        }
+      }
+    });
+
+    function tick() {
+      const now = Date.now();
+      if (sState.mode === "UP") {
+        const currentElapsed = now - sState.startTime;
+        renderTime(currentElapsed);
+      } else {
+        const currentRemaining = sState.startTime - now;
+        if (currentRemaining <= 0) {
+          triggerTimeUpUI();
+          if (sState.isRunning) {
+            dbRef.update({ isRunning: false, remainingTime: 0 });
+          }
+        } else {
+          renderTime(currentRemaining);
+        }
+      }
+    }
+
+    function triggerTimeUpUI() {
+      clearInterval(timerInterval);
+      const timerEl = document.getElementById('timer');
+      const alertEl = document.getElementById('alertArea');
+      
+      timerEl.innerText = "00:00:00";
+      timerEl.className = "color-white";
+      
+      alertEl.innerText = "TIME UP!";
+      alertEl.className = "time-up-yellow-blink";
+    }
+
+    function renderTime(ms) {
+      if (ms < 0) ms = 0;
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+
+      const timerEl = document.getElementById('timer');
+      const alertEl = document.getElementById('alertArea');
+      
+      timerEl.innerText = String(h).padStart(2, '0') + ":" + String(m).padStart(2, '0') + ":" + String(s).padStart(2, '0');
+      alertEl.innerText = "";
+      alertEl.className = "";
+
+      if (sState.mode === "UP" && sState.initialDuration > 0 && ms >= sState.initialDuration) {
+        timerEl.className = "color-yellow";
+      } else {
+        timerEl.className = "color-white";
+      }
+    }
+
+    function updateModeUI() {
+      if (sState.mode === "UP") {
+        document.getElementById('modeUpBtn').classList.add('active');
+        document.getElementById('modeDownBtn').classList.remove('active');
+      } else {
+        document.getElementById('modeUpBtn').classList.remove('active');
+        document.getElementById('modeDownBtn').classList.add('active');
+      }
+      document.getElementById('setupArea').style.display = sState.isRunning ? 'none' : 'flex';
+    }
+
+    document.getElementById('modeUpBtn').addEventListener('click', () => {
+      if (!sState.isRunning) dbRef.set({ mode: "UP", isRunning: false, startTime: 0, elapsedTime: 0, initialDuration: 600000, remainingTime: 600000 });
+    });
+
+    document.getElementById('modeDownBtn').addEventListener('click', () => {
+      if (!sState.isRunning) dbRef.set({ mode: "DOWN", isRunning: false, startTime: 0, elapsedTime: 0, initialDuration: 600000, remainingTime: 600000 });
+    });
+
+    document.getElementById('setTimeBtn').addEventListener('click', () => {
+      const h = parseInt(document.getElementById('setupH').value) || 0;
+      const m = parseInt(document.getElementById('setupM').value) || 0;
+      const s = parseInt(document.getElementById('setupS').value) || 0;
+      const totalMs = ((h * 3600) + (m * 60) + s) * 1000;
+      
+      if (totalMs > 0) {
+        dbRef.update({ initialDuration: totalMs, remainingTime: totalMs });
+      }
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+      if (!sState.isRunning) {
+        const now = Date.now();
+        if (sState.mode === "UP") {
+          dbRef.update({ isRunning: true, startTime: now - sState.elapsedTime });
+        } else {
+          if (sState.remainingTime > 0) dbRef.update({ isRunning: true, startTime: now + sState.remainingTime });
+        }
+      }
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      if (sState.isRunning) {
+        const now = Date.now();
+        if (sState.mode === "UP") {
+          dbRef.update({ isRunning: false, elapsedTime: now - sState.startTime });
+        } else {
+          dbRef.update({ isRunning: false, remainingTime: sState.startTime - now });
+        }
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (sState.mode === "UP") {
+        dbRef.update({ isRunning: false, startTime: 0, elapsedTime: 0 });
+      } else {
+        dbRef.update({ isRunning: false, startTime: 0, remainingTime: sState.initialDuration });
+      }
+    });
+  </script>
+</body>
+</html>
