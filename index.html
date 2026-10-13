@@ -75,10 +75,10 @@
   <div id="alertArea"></div>
 
   <script>
-    // ご提示いただいた設定キーをブラウザ用に最適化して配置
+    // 登録していただいた正規のFirebaseキー
     const firebaseConfig = {
       apiKey: "AIzaSyAhDvAfXK4TIwzZqtoI2HArp8Nakc44grc",
-      authDomain: "timer-mondo.firebaseapp.com",
+      authDomain: "://firebaseapp.com",
       databaseURL: "https://firebaseio.com",
       projectId: "timer-mondo",
       storageBucket: "timer-mondo.firebasestorage.app",
@@ -99,22 +99,28 @@
       remainingTime: 600000 
     };
 
+    // 🔴【新規追加】空っぽのデータベースでも一発起動させるための初期化エラー回避システム
     dbRef.on("value", (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        sState = data;
-        clearInterval(timerInterval);
-        updateModeUI();
+      
+      if (!data) {
+        // データベースに何もない場合に自動で初期値を書き込んで強制起動する
+        dbRef.set(sState);
+        return;
+      }
 
-        if (sState.isRunning) {
-          timerInterval = setInterval(tick, 100);
+      sState = data;
+      clearInterval(timerInterval);
+      updateModeUI();
+
+      if (sState.isRunning) {
+        timerInterval = setInterval(tick, 100);
+      } else {
+        if (sState.mode === "DOWN" && sState.remainingTime <= 0) {
+          triggerTimeUpUI();
         } else {
-          if (sState.mode === "DOWN" && sState.remainingTime <= 0) {
-            triggerTimeUpUI();
-          } else {
-            const displayMs = (sState.mode === "UP") ? sState.elapsedTime : sState.remainingTime;
-            renderTime(displayMs);
-          }
+          const displayMs = (sState.mode === "UP") ? sState.elapsedTime : sState.remainingTime;
+          renderTime(displayMs);
         }
       }
     });
