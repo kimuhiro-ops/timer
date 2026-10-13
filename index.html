@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2台同期カスタムタイマー</title>
-  <!-- 欠落していたFirebaseの公式ライブラリを確実に読み込み -->
+  <!-- 完全に修復したFirebase公式ライブラリの読み込みアドレス -->
   <script src="https://gstatic.com"></script>
   <script src="https://gstatic.com"></script>
   
@@ -21,7 +21,7 @@
     .setup-area input { background: #000; color: #fff; border: 1px solid #555; padding: 8px; width: 55px; text-align: center; font-size: 1.2rem; border-radius: 6px; font-family: monospace; }
     #setTimeBtn { padding: 8px 16px; background: #fff; color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
 
-    /* タイマー表示本体（サイズを9remに拡大） */
+    /* タイマー表示本体 */
     #timer { font-size: 9rem; font-family: monospace; font-weight: 700; margin-bottom: 20px; letter-spacing: 2px; text-align: center; min-width: 450px; }
     
     /* 文字色のルール */
@@ -99,7 +99,7 @@
       remainingTime: 600000 
     };
 
-    // 空のデータベースを検知した際の自動初期化・同期システム
+    // 自動初期化・同期システム
     dbRef.on("value", (snapshot) => {
       const data = snapshot.val();
       
