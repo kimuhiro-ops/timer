@@ -75,7 +75,17 @@
   <div id="alertArea"></div>
 
   <script>
-    const firebaseConfig = { databaseURL: "https://firebaseio.com" };
+    // ご提示いただいた設定キーをブラウザ用に最適化して配置
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhDvAfXK4TIwzZqtoI2HArp8Nakc44grc",
+      authDomain: "timer-mondo.firebaseapp.com",
+      databaseURL: "https://firebaseio.com",
+      projectId: "timer-mondo",
+      storageBucket: "timer-mondo.firebasestorage.app",
+      messagingSenderId: "858096242667",
+      appId: "1:858096242667:web:b46632c280ef4fe68fd3ae"
+    };
+
     firebase.initializeApp(firebaseConfig);
     const dbRef = firebase.database().ref("mondo_global_shared_timer");
 
@@ -196,7 +206,9 @@
         if (sState.mode === "UP") {
           dbRef.update({ isRunning: true, startTime: now - sState.elapsedTime });
         } else {
-          if (sState.remainingTime > 0) dbRef.update({ isRunning: true, startTime: now + sState.remainingTime });
+          if (sState.remainingTime > 0) {
+            dbRef.update({ isRunning: true, startTime: now + sState.remainingTime });
+          }
         }
       }
     });
