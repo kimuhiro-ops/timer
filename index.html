@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2台同期カスタムタイマー</title>
-  <!-- Firebase 安定版ライブラリ -->
+  <!-- 欠落していたFirebaseの公式ライブラリを確実に読み込み -->
   <script src="https://gstatic.com"></script>
   <script src="https://gstatic.com"></script>
   
@@ -75,7 +75,7 @@
   <div id="alertArea"></div>
 
   <script>
-    // 登録していただいた正規のFirebaseキー
+    // hiroさんの専用Firebase接続キーを正しく配置
     const firebaseConfig = {
       apiKey: "AIzaSyAhDvAfXK4TIwzZqtoI2HArp8Nakc44grc",
       authDomain: "://firebaseapp.com",
@@ -99,12 +99,11 @@
       remainingTime: 600000 
     };
 
-    // 🔴【新規追加】空っぽのデータベースでも一発起動させるための初期化エラー回避システム
+    // 空のデータベースを検知した際の自動初期化・同期システム
     dbRef.on("value", (snapshot) => {
       const data = snapshot.val();
       
       if (!data) {
-        // データベースに何もない場合に自動で初期値を書き込んで強制起動する
         dbRef.set(sState);
         return;
       }
